@@ -1,0 +1,96 @@
+@page "/"
+@rendermode InteractiveServer
+@using System.Net
+@using System.Net.Http.Json
+@using BlazorDbzPersonagem.Models
+@inject HttpClient Http
+
+<PageTitle>Personagem Dragon Ball</PageTitle>
+
+<h3>Buscar Personagem</h3>
+
+<div class="mb-3" style="max-width: 300px;">
+    <label for="idPersonagem" class="form-label">Informe o ID do personagem:</label>
+    <input id="idPersonagem" type="number" min="1" class="form-control" @bind="id" />
+</div>
+
+<button class="btn btn-primary mb-4" @onclick="BuscarPersonagem" disabled="@carregando">
+    @(carregando ? "Buscando..." : "Buscar")
+</button>
+
+@if (!string.IsNullOrEmpty(mensagemErro))
+{
+    <div class="alert alert-danger">@mensagemErro</div>
+}
+
+@if (personagem != null)
+{
+    <h3>Informações do Personagem</h3>
+
+    <p><strong>Nome:</strong> @personagem.Nome</p>
+
+    <p><strong>Planeta de Origem:</strong> @(personagem.PlanetaOrigem?.Nome ?? "Desconhecido")</p>
+
+    <h4>Transformações:</h4>
+
+    @if (personagem.Transformacoes.Count > 0)
+    {
+        <ul>
+            @foreach (var transformacao in personagem.Transformacoes)
+            {
+                <li>@transformacao.Nome</li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>Este personagem não possui transformações.</p>
+    }
+}
+
+@code {
+    private int id = 1;
+    private Personagem? personagem;
+    private string mensagemErro = string.Empty;
+    private bool carregando = false;
+
+    private async Task BuscarPersonagem()
+    {
+        mensagemErro = string.Empty;
+        personagem = null;
+
+        if (id <= 0)
+        {
+            mensagemErro = "Informe um ID maior que zero.";
+            return;
+        }
+
+        carregando = true;
+
+        try
+        {
+            var resposta = await Http.GetAsync($"api/characters/{id}");
+
+            if (resposta.StatusCode == HttpStatusCode.NotFound)
+            {
+                mensagemErro = $"Nenhum personagem encontrado com o ID {id}.";
+            }
+            else if (!resposta.IsSuccessStatusCode)
+            {
+                mensagemErro = $"Erro ao consultar a API (código {(int)resposta.StatusCode}).";
+            }
+            else
+            {
+                personagem = await resposta.Content.ReadFromJsonAsync<Personagem>();
+            }
+        }
+        catch (Exception ex)
+        {
+            mensagemErro = $"Falha ao acessar a API: {ex.Message}";
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+}
